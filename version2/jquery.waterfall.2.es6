@@ -1,3 +1,4 @@
+/*! by da宗熊  https://github.com/linfenpan/waterfall */
 ;(function($){
     class Waterfall {
         constructor(elem, options) {
@@ -89,7 +90,24 @@
                 top: cell.y
             });
             cell.y += $elem.outerHeight() + vertical;
+
+            this.fixRootHeight();
             return {top, left};
+        }
+
+        fixRootHeight() {
+            var fixHeight = this.options.fixHeight;
+            var itemVSpace = this.itemVSpace;
+            if (fixHeight) {
+                let cells = this.cells;
+                let heights = [];
+                for (let i = 0, max = cells.length; i < max; i++) {
+                    let item = cells[i];
+                    heights.push(item.y - itemVSpace);
+                }
+                let maxHeight = Math.max.apply(Math, heights);
+                this.$root.height(Math.max(maxHeight, 0));
+            }
         }
 
         initElememtStyle($elem) {
@@ -110,7 +128,10 @@
             return this.$root.children();
         }
 
-        add(elem, index) {
+        add(index, elem) {
+            if (typeof index != "number") {
+                [elem, index] = [index, elem];
+            }
             var $elem = $(elem);
             this.initElememtStyle($elem);
 

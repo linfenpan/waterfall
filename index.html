@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <title>瀑布流插件</title>
+    <style>
+        * { padding: 0; margin: 0; }
+        #operation a { display: inline-block; padding: 5px 10px; margin: 10px 0 0 0; color: #fff; background: #1E9ACA; border-radius: 4px; text-decoration: none; }
+        #waterfall { position: relative; width: 640px; margin-top: 10px; background: #ddd; transition: height .1s ease; }
+        #waterfall .item { width: 200px; background: #E8D5D5; transition: top .3s ease, left .3s ease, opacity .3s ease; }
+        #waterfall .item img { width: 100%; vertical-align: bottom; }
+        #waterfall .colorBlock { height: 200px; }
+        #waterfall .redBlock { background: #D92423; }
+        #waterfall .greenBlock { background: #1BBD46; }
+        #waterfall .blueBlock { background: #007DEF; }
+    </style>
+</head>
+<body>
+    <div id="operation">
+        <a href="javascript:;" data-role="insert">插入新元素</a>
+        <a href="javascript:;" data-role="insertAt2">在第2位插入新元素</a>
+        <a href="javascript:;" data-role="replace">替换第2个元素</a>
+        <a href="javascript:;" data-role="remove">删除第2个元素</a><br/>
+        <a href="javascript:;" data-role="remove-add-sync">删除第2个元素，并在第3的位置插入新元素[同步]</a><br/>
+        <a href="javascript:;" data-role="remove-add-async">删除第2个元素，并在第3的位置插入新元素[异步]</a><br/>
+    </div>
+    <div id="waterfall"></div>
+    <div id="children" style="display: none;">
+        <div class="item">
+            瀑布排版测试
+        </div>
+        <div class="item">
+            <img src="http://pic.baike.soso.com/p/20090713/20090713222856-1371165513.jpg" />
+        </div>
+        <div class="item">
+            <img src="./images/4.jpg" />
+        </div>
+        <div class="item">
+            <img src="http://img3.a0bi.com/upload/articleResource/20160204/1454569005725.jpg" />
+        </div>
+        <div class="item">
+            <img src="http://img3.a0bi.com/upload/articleResource/20160216/1455616506644.jpg" />
+        </div>
+        <div class="item">
+            <img src="http://img2.a0bi.com/upload/articleResource/20151105/1446711093665.jpg" />
+        </div>
+        <div class="item">
+            <img src="./images/5.jpg" />
+        </div>
+    </div>
+</body>
+<script src="./lib/jquery-2.0.0.min.js" charset="utf-8"></script>
+<script src="./jquery.waterfall.serialize.js" charset="utf-8"></script>
+<script type="text/javascript">
+    var $waterfall = $("#waterfall");
+    var wfall;
+    $waterfall.waterfall({
+        itemWidth: 200,
+        initStyle: { opacity: 0 }
+    }).waterfall(function(w){
+        // 也可以在回调里，拿到 waterfall 对象
+        wfall = w;
+        // 新增动画
+        wfall.setAddAnimate(function($elem, next){
+            $elem.css({ opacity: 1 });
+            // 与下面的wait操作对应，保证最多 0.1 秒，再插入另外一个元素
+            setTimeout(next, 200);
+        });
+        // 删除动画
+        wfall.setRemoveAnimate(function($elem, next){
+            $elem.css({ opacity: 0 });
+            setTimeout(next, 200);
+        });
+    });
+
+
+    // 插入元素
+    var $children = $("#children");
+    $children.find(".item").each(function(i, elem){
+        var $elem = $(elem);
+        var $img = $elem.find("img");
+        var imageCount = $img.size();
+        insertElem();
+        // 图片加载完成后，再插入瀑布
+        //  不然，可先插入瀑布，等待图片加载完成后，将瀑布 reflow() 一次
+        $img.each(function(i, img){
+            if (img.naturalWidth > 0 || img.naturalHeight > 0) {
+                imageCount--;
+                insertElem();
+            } else {
+                $(img).one("load", function(){
+                    imageCount--;
+                    insertElem();
+                });
+            }
+        });
+        function insertElem(){
+            if (imageCount == 0) {
+                $waterfall.waterfall("add", $elem).waterfall("wait");
+            }
+        };
+    });
+
+
+    // 一些测试操作
+    $("#operation").on("click", "[data-role]", function(e){
+        var role = $(this).data("role");
+        switch(role) {
+            case "insert":
+                var item = newItemList[Math.floor(Math.random() * newItemList.length)];
+                $waterfall.waterfall("add", item);
+                break;
+            case "insertAt2":
+                var item = newItemList[Math.floor(Math.random() * newItemList.length)];
+                // 索引从 0 开始
+                $waterfall.waterfall("add", 1, item);
+                break;
+            case "replace":
+                var item = newItemList[Math.floor(Math.random() * newItemList.length)];
+                // 索引从 0 开始
+                $waterfall.waterfall("replace", 1, item);
+                break;
+            case "remove":
+                // 索引从 0 开始
+                $waterfall.waterfall("remove", 1);
+                break;
+            case "remove-add-sync":
+                var item = newItemList[Math.floor(Math.random() * newItemList.length)];
+                $waterfall.waterfall(function(w){
+                    w.remove(1).add(2, item);
+                });
+                break;
+            case "remove-add-async":
+                var item = newItemList[Math.floor(Math.random() * newItemList.length)];
+                $waterfall.waterfall(function(w){
+                    w.remove(1).wait().add(2, item);
+                });
+                break;
+        }
+    });
+    var newItemList = [
+        '<div class="item"><div class="redBlock colorBlock">红</div></div>',
+        '<div class="item"><div class="greenBlock colorBlock">绿</div></div>',
+        '<div class="item"><div class="blueBlock colorBlock">蓝</div></div>'
+    ];
+</script>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <title>瀑布流插件</title>
+    <style>
+        * { padding: 0; margin: 0; }
+        #waterfall { position: relative; background: #ddd; }
+        #waterfall .item { width: 200px; transition: top .3s ease, left .3s ease; }
+        #waterfall .item img { width: 100%; }
+    </style>
+</head>
+<body>
+    <div id="waterfall"></div>
+</body>
+
+<script id="templete" type="text/html">
+	<div class="item">
+		<img class="img" src="../images/@src" />
+	</div>
+</script>
+<script src="../lib/jquery-2.0.0.min.js" charset="utf-8"></script>
+<script src="./jquery.imgloadedchecker.min.js" charset="utf-8"></script>
+<script src="./jquery.waterfall.js" charset="utf-8"></script>
+
+<script type="text/javascript">
+    var $root = $("#waterfall");
+    // 生成 瀑布
+    var waterFall = $.WaterfallLayout($root, { itemWidth: 200 });
+    // 设置元素出现时的动画
+    waterFall.setAnimate(function($elem){
+        // 1. 先隐藏
+        // 2. 动画显示出来
+    	$elem.css({
+    		"opacity": 0
+    		,"position": "relative"
+    		,"top": 20
+    	}).animate({
+    		"opacity": 1
+    		,"top": 0
+    	}, 200);
+    });
+    waterFall.on("addItem", function(e, data){
+        var $wrap = data.elem;
+        $root.height($wrap.position().top + $wrap.outerHeight());
+    });
+    waterFall.on("reset", function(e){
+    	window.console && console.log("瀑布流重设了...");
+    });
+
+    // 插入元素
+    var templete = $.trim($("#templete").html());
+    // 图片加载 检测器
+    var defaultSrc = "../images/1.jpg";
+    var checker = $.imgLoadedChecker(defaultSrc);
+    checker.addLoadedListener(function(i, $elem){
+    	waterFall.appendItem($elem);
+    });
+
+    // 模拟 数据
+    var index = -1;
+	(function auto(){
+		index++;
+        // 在 checker.addLoadedListener 中，进行插入
+		checker.check(templete.replace("@src", (index % 5 + 1) + ".jpg"));
+		if(index < 20){
+            setTimeout(arguments.callee, 200);
+		}
+	})();
+</script>
+</html>

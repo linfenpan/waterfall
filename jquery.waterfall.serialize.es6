@@ -1,3 +1,4 @@
+/*! by da宗熊  https://github.com/linfenpan/waterfall */
 ;(function($){
     class Waterfall {
         constructor(elem, options) {
@@ -21,10 +22,10 @@
             };
             this.itemInitialStyle = {  };
 
-            this.init(options || {});
+            this._init(options || {});
         }
 
-        init(options) {
+        _init(options) {
             var $root = this.$root;
             var cssPosition = "position";
             if ($root.css(cssPosition) == "static") {
@@ -71,12 +72,12 @@
 
             // 初始化列表的起始坐标
             this.cellCount = cellCount;
-            this.resetCells();
+            this._resetCells();
 
             return this;
         }
 
-        resetCells() {
+        _resetCells() {
             var {cellCount, itemHSpace, itemWidth, startX} = this;
             var cells = [];
             for (let i = 0, max = cellCount; i < max; i++) {
@@ -86,8 +87,8 @@
             this.cells = cells;
         }
 
-        placeElement($elem) {
-            var cell = this.queryMinCell();
+        _placeElement($elem) {
+            var cell = this._queryMinCell();
             var vertical = this.itemVSpace;
             var {y: top, x: left} = cell;
             $elem.css({
@@ -95,16 +96,33 @@
                 top: cell.y
             });
             cell.y += $elem.outerHeight() + vertical;
+
+            this._fixRootHeight();
             return {top, left};
         }
 
-        initElememtStyle($elem) {
+        _fixRootHeight() {
+            var fixHeight = this.options.fixHeight;
+            var itemVSpace = this.itemVSpace;
+            if (fixHeight) {
+                let cells = this.cells;
+                let heights = [];
+                for (let i = 0, max = cells.length; i < max; i++) {
+                    let item = cells[i];
+                    heights.push(item.y - itemVSpace);
+                }
+                let maxHeight = Math.max.apply(Math, heights);
+                this.$root.height(Math.max(maxHeight, 0));
+            }
+        }
+
+        _initElememtStyle($elem) {
             $elem.css(
                 $.extend({ position: "absolute", width: this.itemWidth }, this.itemInitialStyle)
             );
         }
 
-        queryMinCell() {
+        _queryMinCell() {
             this.cells.sort(function(a, b){
                 return a.y > b.y ? 1 : -1;
             });
@@ -112,7 +130,7 @@
             return cell;
         }
 
-        getChildren() {
+        _getChildren() {
             return this.$root.children();
         }
 
@@ -145,14 +163,20 @@
             return this;
         },
         notify() {
-            this.isWait = false;
-            this.popStack();
+            // 同步调用，会产生bug
+            setTimeout(() => {
+                this.isWait = false;
+                this.popStack();
+            });
             return this;
         },
         pushStack(fn, args) {
             this.waitStack.push(() => {
                 fn.apply(this, args);
             });
+            if (!this.isWait) {
+                this.popStack();
+            }
             return this;
         },
         popStack() {
@@ -169,16 +193,20 @@
 
 
     // 添加 add/remove/replace/reflow/resize 功能
+    //      这些功能，都可以配合 wait 一起使用
     $.extend(prototype, {
-        add(elem, index) {
+        add(index, elem) {
+            if (typeof index != "number") {
+                [elem, index] = [index, elem];
+            }
             var $elem = $(elem);
-            var $children = this.getChildren();
-            this.initElememtStyle($elem);
+            var $children = this._getChildren();
+            this._initElememtStyle($elem);
 
             if (typeof index == "undefined" || index >= $children.size()) {
                 // 只刷新最后一个
                 $elem.appendTo(this.$root);
-                this.placeElement($elem);
+                this._placeElement($elem);
             } else {
                 // 更新整个元素列表
                 $children.eq(index).before($elem);
@@ -193,7 +221,10 @@
         },
 
         remove(index) {
-            var $children = this.getChildren();
+            if (typeof index != "number") {
+                index = $(index).index();
+            }
+            var $children = this._getChildren();
             var $cur = $children.eq(index);
             if ($cur.size() > 0) {
                 this.removeAnimate($cur, () => {
@@ -201,12 +232,17 @@
                     this.notify();
                     this.reflow();
                 });
+            } else {
+                this.notify();
             }
             return this;
         },
 
         replace(index, elem) {
-            var $children = this.getChildren();
+            if (typeof index != "number") {
+                index = $(index).index();
+            }
+            var $children = this._getChildren();
             if (index >= $children.size()) {
                 this.add(elem);
             } else {
@@ -216,16 +252,16 @@
         },
 
         reflow() {
-            var $children = this.getChildren();
+            var $children = this._getChildren();
             // 清空 cells 的y坐标
-            this.resetCells();
+            this._resetCells();
 
             var size = $children.size();
             $children.each((i, v) => {
                 var $elem = $(v);
                 var oldPos = $elem.position();
 
-                var newPos = this.placeElement($elem);
+                var newPos = this._placeElement($elem);
 
                 // 复位，把动画，交给外部处理
                 $elem.css(oldPos);
@@ -247,16 +283,12 @@
 
 
     // 修正有 notify 功能的函数
-    var waitList = "add,remove,replace,reflow,wait".split(",");
+    var waitList = "add,remove,replace,reflow,resize,reset,wait".split(",");
     for (let i = 0, max = waitList.length; i < max; i++) {
         let key = waitList[i];
         let orignalFn = prototype[key];
         prototype[key] = function(...args){
-            if (this.isWait) {
-                this.pushStack(orignalFn, args);
-            } else {
-                orignalFn.apply(this, args);
-            }
+            this.pushStack(orignalFn, args);
             return this;
         };
     };
